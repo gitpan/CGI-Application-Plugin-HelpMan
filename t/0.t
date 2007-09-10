@@ -9,7 +9,7 @@ ok(1);
 use CGI::Application::HelpMan;
 $ENV{CGI_APP_RETURN_ONLY} = 1;
 
-
+$CGI::Application::Plugin::HelpMan::DEBUG =  1;
 my $t = new CGI::Application::HelpMan;
 ok($t,'instanced');
 ok($t->run);
@@ -24,6 +24,8 @@ my $total=0;
 
 use CGI::Application::Plugin::HelpMan ':ALL';
 #CGI::Application::Plugin::HelpMan->DEBUG(1);
+$CGI::Application::Plugin::HelpMan::DEBUG =  1;
+
 my @queries = (
 'DBI',
 'CGI::Application',

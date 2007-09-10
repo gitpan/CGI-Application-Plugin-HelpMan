@@ -16,5 +16,6 @@ WriteMakefile (
       'File::Slurp' => 0,
       'Cwd' => 0,   
       'Test::Simple' => 0,
+      'Smart::Comments' => 0,
    },
 );

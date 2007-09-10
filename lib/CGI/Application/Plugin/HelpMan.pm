@@ -1,7 +1,7 @@
 package CGI::Application::Plugin::HelpMan;
 use strict;
 use warnings;
-use base 'CGI::Application';
+#use base 'CGI::Application';
 use LEOCHARRE::DEBUG;
 use Carp;
 use Exporter;
@@ -31,41 +31,10 @@ _set_term_as_caller
 ));
 %EXPORT_TAGS = (
    ALL => \@EXPORT_OK,
-   basic => [qw(
-hm_abs_tmp
-hm_doc_body
-hm_doc_title
-hm_found_term_abs
-hm_found_term_doc
-hm_found_term_query
-hm_set_term
-hm_term_get 
-_term_abs_path
-_doc_html
-hm_help_title
-hm_help_body
-_hm_reset_data
-_set_term_as_caller
-)],
-   all => [qw(   
-_doc_html
-_term_abs_path
-hm_abs_tmp
-hm_doc_body
-hm_doc_title
-hm_found_term_abs
-hm_found_term_doc
-hm_found_term_query
-hm_set_term
-hm_term_get   
-hm_help_title
-hm_help_body
-_hm_reset_data
-_set_term_as_caller
-
-)],
+   basic => \@EXPORT_OK,
+   all => \@EXPORT_OK,
 );
-our $VERSION = sprintf "%d.%02d", q$Revision: 1.4 $ =~ /(\d+)/g;
+our $VERSION = sprintf "%d.%02d", q$Revision: 1.8 $ =~ /(\d+)/g;
 
 
 # 1) is there something to look for?
@@ -115,10 +84,23 @@ sub hm_doc_body {
 # title text for template
 sub hm_doc_title {
    my $self = shift;
+   my $title;
+   
    my $html = $self->_doc_html or return 0;
+
+   
    if( $html=~m/<title[^<>]*>(.+)<\/title>/si ){
-      return $1;
+      $title = $1;
+      debug("[$title]via html\n");
+      return $title;
+      
    }
+   elsif( $self->hm_term_get ){
+      my $namespace = __term_to_namespace($self->hm_term_get);
+      debug("[$namespace] via term to namespace\n");      
+      return $namespace;
+   }
+   
    return 0;   
 }
 
@@ -148,9 +130,9 @@ sub hm_term_get {
       my $term = $self->query->param('query');
       
       # then from caller
-      $term ||= caller(1);
+      $term ||= caller; # was using caller(1), wrong.
       $self->{_hm_data_}->{_man_searchterm} = $term;
-      debug("$term\n");
+      debug(" term is [$term]\n");
    }
    return $self->{_hm_data_}->{_man_searchterm};
 }
@@ -170,10 +152,12 @@ sub _doc_html {
          warn("no abs path for term");
          $self->{_hm_data_}->{_abs_path_htmlcode} = 0;
          return 0;
-      }      
+      }
+      my $help_runmode_name = $self->get_current_runmode;
+      $help_runmode_name ||=undef;
       $self->{_hm_data_}->{_abs_path_htmlcode} = 
          __abs_path_doc_to_html(
-            $self->_term_abs_path, $self->hm_abs_tmp );
+            $self->_term_abs_path, $self->hm_abs_tmp, $help_runmode_name );
          
       $self->{_hm_data_}->{_abs_path_htmlcode} ||=0;   
    }
@@ -192,7 +176,8 @@ sub hm_help_body {
 
 sub hm_help_title {
    my $self = shift;
-   $self->_set_term_as_caller;
+   $self->_set_term_as_caller;  
+   
    return $self->hm_doc_title;
 }
 
@@ -226,9 +211,11 @@ sub _hm_reset_data {
 # get html
 
 sub __abs_path_doc_to_html {
-   my ($abs,$tmp) = @_; defined $abs and defined $tmp or confess('missing args');
+   my ($abs,$tmp,$runmode) = @_; defined $abs and defined $tmp or confess('missing args');
    debug("$abs\n");     
 
+   $runmode ||= 'help_view';
+   debug("runomde = $runmode");
    # can we write to this place, the tmp place? # TODO $self->hm_abs_tmp ?
    chdir $tmp or confess("$!, cant chdir to $tmp"); # if you dont... breaks. because perl2html ne4eds to write a tmp file
       
@@ -242,13 +229,13 @@ sub __abs_path_doc_to_html {
       "--outfile=$out",
      # "--verbose",
     # '--css=http://search.cpan.org/s/style.css'
-      q{--htmlroot=?rm=help_view&query=}, # WORKS for LINKING
+      "--htmlroot=?rm=$runmode".'&query=', # WORKS for LINKING
       ); 
    #TODO needs work up there.
    
    my $html = File::Slurp::slurp($out) or warn("could not slurp $out");
 
-   debug("\n\n$html\n\n");
+  # debug("\n\n$html\n\n"); NO
    
    return $html;  
 }
@@ -343,10 +330,10 @@ If you want otherwise:
 
 =head1 METHODS
 
-None are exported by default, you can import all with the export tag ':basic'.
+None are exported by default, you can import all with the export tag ':all'.
 You can do 
 
-   use CGI::Application::Plugin::HelpMan ':basic';
+   use CGI::Application::Plugin::HelpMan ':all';
 
 =head2 hm_abs_tmp()
 
@@ -373,10 +360,9 @@ returns boolean
 
 force term
 
-=haed2 hm_term_get()
+=head2 hm_term_get()
 
 returns term string
-
 
 
 =head1 PRIVATE METHODS
@@ -437,11 +423,23 @@ Then your app needs a help runmode..
    
       my $return = sprintf "<h1>%s</h1> %s", $self->hm_help_title, $self->hm_help_body;   
       return $return;      
-   }
+   }  
 
 That's it.
 
 For a more interesting example, complete with lookup, etc.. see L<CGI::Application::HelpMan>.
+
+
+If that fails try
+
+      sub rm_help {
+      my $self = shift;
+      $self->hm_set_term('Your::Package');
+   
+      my $return = sprintf "<h1>%s</h1> %s", $self->hm_help_title, $self->hm_help_body;   
+      return $return;      
+   }  
+
 
 =head1 AUTHOR
 
