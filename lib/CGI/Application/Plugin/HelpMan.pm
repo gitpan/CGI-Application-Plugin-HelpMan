@@ -34,8 +34,7 @@ _set_term_as_caller
    basic => \@EXPORT_OK,
    all => \@EXPORT_OK,
 );
-our $VERSION = sprintf "%d.%02d", q$Revision: 1.8 $ =~ /(\d+)/g;
-
+$VERSION = sprintf "%d.%02d", q$Revision: 1.9 $ =~ /(\d+)/g;
 
 # 1) is there something to look for?
 sub hm_found_term_query {
